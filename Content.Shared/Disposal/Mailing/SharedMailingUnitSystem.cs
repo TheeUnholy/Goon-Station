@@ -6,6 +6,7 @@ using Content.Shared.DeviceNetwork.Systems;
 using Content.Shared.Disposal.Components;
 using Content.Shared.Disposal.Unit;
 using Content.Shared.Disposal.Unit.Events;
+using Content.Shared.Emag.Systems;
 using Content.Shared.Interaction;
 using Content.Shared.Power.EntitySystems;
 using Robust.Shared.Player;
@@ -39,6 +40,7 @@ public abstract class SharedMailingUnitSystem : EntitySystem
         SubscribeLocalEvent<MailingUnitComponent, ConfigurationUpdatedEvent>(OnConfigurationUpdated);
         SubscribeLocalEvent<MailingUnitComponent, ActivateInWorldEvent>(HandleActivate, before: new[] { typeof(SharedDisposalUnitSystem) });
         SubscribeLocalEvent<MailingUnitComponent, TargetSelectedMessage>(OnTargetSelected);
+        SubscribeLocalEvent<MailingUnitComponent, GotEmaggedEvent>(OnEmagged);
     }
 
     private void OnComponentInit(EntityUid uid, MailingUnitComponent component, ComponentInit args)
@@ -170,5 +172,20 @@ public abstract class SharedMailingUnitSystem : EntitySystem
     {
         component.Target = args.Target;
         Dirty(uid, component);
+    }
+
+    private void OnEmagged(EntityUid uid, MailingUnitComponent component, ref GotEmaggedEvent args)
+    {
+        component.IsEmagged = true;
+
+        // When EMAGged, clear the whitelist to allow creatures to be inserted
+        if (TryComp<DisposalUnitComponent>(uid, out var disposalUnit))
+        {
+            disposalUnit.Whitelist = null;
+            Dirty(uid, disposalUnit);
+        }
+
+        Dirty(uid, component);
+        args.Handled = true;
     }
 }

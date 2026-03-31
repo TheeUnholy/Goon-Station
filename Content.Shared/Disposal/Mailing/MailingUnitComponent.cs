@@ -31,4 +31,10 @@ public sealed partial class MailingUnitComponent : Component
     /// </summary>
     [DataField, AutoNetworkedField]
     public string? Tag;
+
+    /// <summary>
+    /// Whether this mailing unit is EMAGged, allowing creatures to be mailed
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public bool IsEmagged;
 }
