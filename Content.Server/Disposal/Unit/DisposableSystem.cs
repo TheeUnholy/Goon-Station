@@ -40,6 +40,7 @@ using Robust.Shared.Containers;
 using Robust.Shared.Map.Components;
 using Robust.Shared.Physics.Components;
 using Robust.Shared.Physics.Systems;
+using Robust.Shared.Random;
 
 namespace Content.Server.Disposal.Unit
 {
@@ -55,12 +56,15 @@ namespace Content.Server.Disposal.Unit
         [Dependency] private readonly SharedMapSystem _maps = default!;
         [Dependency] private readonly SharedPhysicsSystem _physicsSystem = default!;
         [Dependency] private readonly SharedTransformSystem _xformSystem = default!;
+        [Dependency] private readonly IRobustRandom _random = default!;
 
         private EntityQuery<DisposalTubeComponent> _disposalTubeQuery;
         private EntityQuery<DisposalUnitComponent> _disposalUnitQuery;
         private EntityQuery<MetaDataComponent> _metaQuery;
         private EntityQuery<PhysicsComponent> _physicsQuery;
         private EntityQuery<TransformComponent> _xformQuery;
+        private EntityQuery<BodyComponent> _bodyQuery;
+        private EntityQuery<DisposalBendComponent> _bendQuery;
 
         public override void Initialize()
         {
@@ -71,6 +75,8 @@ namespace Content.Server.Disposal.Unit
             _metaQuery = GetEntityQuery<MetaDataComponent>();
             _physicsQuery = GetEntityQuery<PhysicsComponent>();
             _xformQuery = GetEntityQuery<TransformComponent>();
+            _bodyQuery = GetEntityQuery<BodyComponent>();
+            _bendQuery = GetEntityQuery<DisposalBendComponent>();
 
             SubscribeLocalEvent<DisposalHolderComponent, ComponentStartup>(OnComponentStartup);
             SubscribeLocalEvent<DisposalHolderComponent, ContainerIsInsertingAttemptEvent>(CanInsert);
@@ -230,9 +236,35 @@ namespace Content.Server.Disposal.Unit
                     _damageable.TryChangeDamage(ent, to.DamageOnTurn);
                 }
                 _audio.PlayPvs(to.ClangSound, toUid);
+
+                // Apply additional damage for creatures going through bends
+                if (HasComp<DisposalBendComponent>(toUid))
+                {
+                    ApplyBendDamage(toUid, holder);
+                }
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Applies blunt damage to creatures going through a disposal bend.
+        /// Medium or larger creatures take 1-4 blunt damage when turning through a bend.
+        /// </summary>
+        private void ApplyBendDamage(EntityUid bendUid, DisposalHolderComponent holder)
+        {
+            foreach (var ent in holder.Container.ContainedEntities)
+            {
+                // Only apply damage to creatures (entities with BodyComponent)
+                if (!_bodyQuery.HasComponent(ent))
+                    continue;
+
+                // Apply 1-4 blunt damage randomly
+                var damage = _random.Next(1, 5);
+                var damageSpec = new DamageSpecifier();
+                damageSpec.DamageDict.Add("Blunt", damage);
+                _damageable.TryChangeDamage(ent, damageSpec);
+            }
         }
 
         public override void Update(float frameTime)
